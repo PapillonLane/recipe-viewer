@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap"
+        rel="stylesheet">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Parser</title>
+    <style>
+        body {
+            font-family: 'Lora', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+
+        #recipesContainer {
+            max-width: 8in;
+        }
+
+        .header-row {
+            font-weight: bold;
+        }
+
+        .recipe-row {
+            page-break-inside: avoid;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .recipe-column {
+            margin: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .wide {
+            width: 100%;
+        }
+
+        .columns {
+            display: flex;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column.column-left {
+            min-width: 235px;
+            margin-right: 30px;
+        }
+
+        .recipe-row {
+            page-break-after: always;
+        }
+
+        h3 {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin: 15px 0 0;
+        }
+
+        p {
+            margin: 5px 0;
+        }
+
+        .category {
+            text-align: center;
+            color: white;
+            background-color: red;
+            padding: 5px;
+            margin: 5px 0;
+            font-size: 1.2em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .compatible-diets {
+            text-align: center;
+            background-color: #939598;
+            padding: 5px;
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+
+        .title {
+            font-size: 1.8em;
+            margin: 10px 0;
+            margin-top: 20px;
+        }
+
+        .ingredients>ul {
+            padding-inline-start: 25px;
+            margin-top: 15px;
+        }
+
+        .prep-time,
+        .total-time,
+        .servings {
+            border-bottom: 1px dotted #ccc;
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+
+        .prep-time {
+            margin-top: 20px;
+        }
+
+        .photo {
+            min-height: 250px;
+            background-size: cover;
+            background-position: center;
+            margin: 10px 0.25in 0;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+</head>
+
+<body>
+    <div id="file-input">
+        <input type="file" id="fileInput" accept=".csv">
+    </div>
+
+    <div id="recipesContainer"></div>
+
+    <script>
+
+        const brandColors = {
+            'Smoothies': '#67c5b3',
+            'Breakfast': '#a4d393',
+            'Lunch': '#f58d90',
+            'Dinner': '#f4bc33',
+            'Snacks + Desserts': '#b18cc4',
+            'Sides': '#73b6c4',
+        }
+
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            Papa.parse(file, {
+                header: true,
+                complete: function (results) {
+                    parseCSV(results.data);
+                }
+            });
+        }
+
+        function parseCSV(data) {
+
+            const recipesContainer = document.getElementById('recipesContainer');
+            recipesContainer.innerHTML = '';
+
+            let templates = [];
+            templates[0] =
+                `<div class="wide category"></div>
+                <div class="wide photo"></div>
+                <div class="wide columns">
+                    <div class="column column-left">
+                        <div class="prep-time"></div>
+                        <div class="total-time"></div>
+                        <div class="servings"></div>
+                        <div class="ingredients"></div>
+                    </div>
+                    <div class="column column-right">
+                        <div class="title"></div>
+                        <div class="directions"></div>
+                    </div>
+                </div>
+                <div class="wide compatible-diets"></div>`;
+
+            data.forEach((recipe, i) => {
+                let divElement = [];
+
+                const recipeRow = document.createElement('div');
+                recipeRow.innerHTML = templates[0];
+                recipeRow.id = 'recipe-' + i;
+                recipeRow.classList.add('recipe-row');
+                recipesContainer.appendChild(recipeRow);
+
+                let ingredientsList = recipe['Ingredients'].replace(/\n+/g, '\n').trim().split('\n');
+                let ingredientsListHTML = '<h3>Ingredients</h3><ul>';
+                ingredientsList.forEach(ingredient => {
+                    ingredientsListHTML += `<li>${ingredient}</li>`;
+                });
+                ingredientsListHTML += '</ul>';
+
+                let directionsList = recipe['Directions'].replace(/:\s+/g, ':').replace(/\n+/g, '\n').trim().split('\n');
+                let directionsListHTML = '';
+                directionsList.forEach(direction => {
+                    if (direction.indexOf(':') > -1) {
+                        let parts = direction.split(':');
+                        direction = `<b>${parts[0]}</b>:<br/>${parts[1]}`;
+                    }
+
+                    directionsListHTML += `<p>${direction}</p>`;
+                });
+
+                if (parseInt('0' + recipe['Column Width Adjustment']) > 0) {
+                    document.querySelector(`#recipe-${i} .column-left`).style.minWidth = recipe['Column Width Adjustment'] + '%';
+                    document.querySelector(`#recipe-${i} .column-left`).style.maxWidth = recipe['Column Width Adjustment'] + '%';
+                }
+                document.querySelector(`#recipe-${i} .category`).innerHTML = recipe['Category'];
+                document.querySelector(`#recipe-${i} .category`).style.backgroundColor = brandColors[recipe['Category']];
+                document.querySelector(`#recipe-${i} .photo`).style.backgroundImage = `url('${(recipe['Photo'].indexOf('data:') > -1 ? '' : 'images/') + recipe['Photo']}')`;
+                document.querySelector(`#recipe-${i} .prep-time`).innerHTML = 'Prep. Time: ' + recipe['Prep Time'];
+                document.querySelector(`#recipe-${i} .total-time`).innerHTML = 'Total Time: ' + recipe['Total Time'];
+                document.querySelector(`#recipe-${i} .servings`).innerHTML = 'Serves: ' + recipe['Servings'];
+                document.querySelector(`#recipe-${i} .ingredients`).innerHTML = ingredientsListHTML;
+                document.querySelector(`#recipe-${i} .title`).innerHTML = recipe['Title'];
+                document.querySelector(`#recipe-${i} .directions`).innerHTML = '<h3>Directions:</h3>' + directionsListHTML;
+                document.querySelector(`#recipe-${i} .compatible-diets`).innerHTML = 'Compatible Diets: ' + recipe['Compatible Diets'];
+
+            });
+
+            document.getElementById('fileInput').style.display = 'none';
+        }
+
+    </script>
+</body>
+
+</html>
